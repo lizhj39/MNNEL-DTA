@@ -82,7 +82,7 @@ class DrugScreening():
 
 
 def main():
-    dr = DrugScreening("medin", "AD")
+    dr = DrugScreening("S1R", "AD")
     dr.predict()
 
 
