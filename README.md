@@ -4,6 +4,10 @@
 
 - base_models: Functions and utility functions of the base learners.
 
+model_Fusion.py, model_TFusion.py, model_NHGNN.py are the original models mentioned in the paper.
+model_Mgragh_LSTM.py and model_TFusion_CNN.py are the models covered in Section 4.5.1 of the paper.
+model_Mgragh_modify.py is the model covered in Section 4.5.2 of the paper.
+
 - data_input: The dataset and the preprocessed pconsc4 file can be downloaded from https://drive.google.com/file/d/191QqrTDrcroRuEKYDeb1Cei2s4WLECCF/view?usp=sharing. The code for pconsc4 can be found at https://github.com/595693085/DGraphDTA.
 
 - base_models_train.py：This file instantiates three base learner classes, namely MGraphDTA, TFusionDTA, and NHGNN_DTA. By calling the fit function of the instance, one-click training of the model can be achieved.
@@ -31,7 +35,7 @@ python meta_model_train.py
 
 You can also invoke the class of the meta model to test on the test set or make predictions, etc.
 
-Running drug_screening can achieve drug screening.
+Running drug_screening can achieve drug screening. Input "training data set" and "dataset to be predicted" (the latter defaults to the "AD" dataset, that is, FDA-approved drug-target pairs), and output the predicted DTA value.
 
 ```cmd
 python drug_screening.py
