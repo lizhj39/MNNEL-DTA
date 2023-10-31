@@ -21,30 +21,30 @@ model = TransformerRegressor(save_path=f"saved_models/final_model_{dataset_name}
                              num_layers=3)
 
 
-# model.fit(train_sets=[model.model_Mgraph.train_set, model.model_TFusion.train_set, model.model_NHGNN.train_set],
-#           test_sets=[model.model_Mgraph.test_set, model.model_TFusion.test_set, model.model_NHGNN.test_set],
-#           graph_data=[True, False, True], early_stop_epoch=200, lr=7e-4, save_model=True, weight_decay=1e-5)
+model.fit(train_sets=[model.model_Mgraph.train_set, model.model_TFusion.train_set, model.model_NHGNN.train_set],
+          test_sets=[model.model_Mgraph.test_set, model.model_TFusion.test_set, model.model_NHGNN.test_set],
+          graph_data=[True, False, True], early_stop_epoch=200, lr=7e-4, save_model=True, weight_decay=1e-5)
 
 
 # test
-# model = model.cuda()
+model = model.cuda()
 # model.load_state_dict(torch.load(f"saved_models/final_model_{dataset_name}_LSTMCNN2.pt"))
-# mse, ci, attn_weights = model.val(
-#     test_sets=[model.model_Mgraph.test_set, model.model_TFusion.test_set, model.model_NHGNN.test_set],
-#     graph_data=[True, False, True], get_attn=True
-# )
-# print(f"mse={mse}, ci={ci}")
+mse, ci, attn_weights = model.val(
+    test_sets=[model.model_Mgraph.test_set, model.model_TFusion.test_set, model.model_NHGNN.test_set],
+    graph_data=[True, False, True], get_attn=True
+)
+print(f"mse={mse}, ci={ci}")
 #
-# rollout = torch.Tensor()
-# attn_weights = [layer.detach().cpu() for layer in attn_weights]
-# for ii, layer in enumerate(attn_weights):
-#     if ii == 0:
-#         rollout = torch.eye(4) + layer
-#     else:
-#         rollout = torch.matmul(rollout, (torch.eye(4) + layer))
-# rollout = torch.softmax(rollout, dim=2)
-# av_rollout = torch.mean(rollout, dim=0)
-# print(av_rollout)
+rollout = torch.Tensor()
+attn_weights = [layer.detach().cpu() for layer in attn_weights]
+for ii, layer in enumerate(attn_weights):
+    if ii == 0:
+        rollout = torch.eye(4) + layer
+    else:
+        rollout = torch.matmul(rollout, (torch.eye(4) + layer))
+rollout = torch.softmax(rollout, dim=2)
+av_rollout = torch.mean(rollout, dim=0)
+print(av_rollout)
 
 # attn_weights = []
 # for layer in model.transformer_encoder.layers:
