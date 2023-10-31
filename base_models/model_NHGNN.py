@@ -82,9 +82,9 @@ class NHGNN_DTA(nn.Module):
 
         # link
         self.out_attentions = LinkAttention(hidden_dim, n_heads)
-        self.out_fc1 = nn.Linear(hidden_dim * 3, 256 * 8)
-        self.out_fc2 = nn.Linear(256 * 8, hidden_dim * 2)
-        self.out_fc3 = nn.Linear(hidden_dim * 2, 1)
+        # self.out_fc1 = nn.Linear(hidden_dim * 3, 256 * 8)
+        # self.out_fc2 = nn.Linear(256 * 8, hidden_dim * 2)
+        # self.out_fc3 = nn.Linear(hidden_dim * 2, 1)
         self.layer_norm = nn.LayerNorm(lstm_dim * 2)
 
         # pretrained model
@@ -309,6 +309,29 @@ class NHGNN_DTA(nn.Module):
         return gout
         # return gout * self.theta + out.view(-1, 1) * (1 - self.theta)
 
+    def forward_pro(self, data, tar_len=2600):
+        target_seq, target_emb, target_len = self.target_seq, self.target_emb, self.target_len
+        batchsize = len(data.target)
+        protein = torch.zeros(batchsize, tar_len).cuda().long()
+
+        for i in range(batchsize):
+            seq_id = data.target[i]
+            seq = target_seq[seq_id]
+            protein[i] = target_emb[seq]
+        # smiles_lengths = [len(sm) for sm in data.sm]
+        tar_len = [self.target_len[k] for k in data.target]
+
+        protein = self.protein_embed(protein)  # B * tar_len * emb_dim
+        protein = self.protein_input_fc(protein)  # B * tar_len * lstm_dim
+        protein, _ = self.protein_lstm(protein)  # B * tar_len * lstm_dim *2
+
+        pro_emb = protein
+        data.x = torch.cat([pro_emb[i, 1:tar_len[i] + 1].cpu() for i in range(len(data))], 0)
+
+        NHGvec = self.hgin(data, output_vector=True)
+        return NHGvec
+
+
     def generate_masks(self, adj, adj_sizes, n_heads):
         out = torch.ones(adj.shape[0], adj.shape[1])
         max_size = adj.shape[1]
@@ -336,7 +359,7 @@ class NHGNN_DTA(nn.Module):
             [{'params': base_params},
              {'params': model.hgin.parameters(), 'lr': GIN_lr}], lr=lr, weight_decay=weight_decay)
 
-        schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 20, eta_min=2e-5, last_epoch=-1)
+        schedule = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, 20, eta_min=2e-5, last_epoch=-1, verbose=True)
         criterion = nn.MSELoss()
         dataloader_train = DataLoader(train_set, batch_size=batch_size, shuffle=True)
 

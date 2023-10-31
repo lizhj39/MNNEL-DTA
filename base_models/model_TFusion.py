@@ -1,3 +1,5 @@
+import copy
+
 import torch
 from torch import nn
 from torch.utils.data import DataLoader
@@ -61,7 +63,7 @@ class TFusionDTA(nn.Module):
         self.out_attentions = LinkAttention(hidden_dim, n_heads)
         self.out_fc1 = nn.Linear(hidden_dim * 3, 256 * 8)
         self.out_fc2 = nn.Linear(256 * 8, hidden_dim * 2)
-        self.out_fc3 = nn.Linear(hidden_dim * 2, 1)
+        self.out_fc3 = nn.Linear(hidden_dim * 2, 256)
         self.layer_norm = nn.LayerNorm(lstm_dim * 2)
 
     def preparation(self, data_path, drug_vocab, target_vocab, tar_len, sm_len):
@@ -172,9 +174,6 @@ class TFusionDTA(nn.Module):
         out_cat, out_attn = self.out_attentions(out_cat, out_masks)
         out = torch.cat([smiles_out, protein_out, out_cat], dim=-1)  # B * (rnn*2 *3)
 
-        if output_vector:
-            return smiles_out, protein_out, out_cat, out
-
         out = self.dropout(self.relu(self.out_fc1(out)))  # B * (256*8)
         o2 = self.out_fc2(out)
 
@@ -182,10 +181,29 @@ class TFusionDTA(nn.Module):
         #     return smiles_out, protein_out, out_cat, o2
 
         out = self.dropout(self.relu(o2))  # B *  hidden_dim*2
-        out = self.out_fc3(out).squeeze()
+        out = self.out_fc3(out)
 
-        del smiles_out, protein_out
+        if output_vector:
+            return out
+        out = torch.norm(out, dim=-1).view(-1)
+
+        # del smiles_out, protein_out
+        # if output_vector:
+        #     out = out.unsqueeze(-1)
+        #     return torch.cat((smiles_out, out), dim=-1), torch.cat((protein_out, out), dim=-1), torch.cat((out_cat, out), dim=-1), torch.cat((out_copy, out), dim=-1)
+
         return out
+
+    def forward_smile(self, data):
+        smiles = data[0].cuda()
+        smiles_lengths = data[-2].cuda()
+        smiles = self.smiles_embed(smiles)  # B * seq len * emb_dim
+        smiles = self.smiles_input_fc(smiles)  # B * seq len * lstm_dim
+        smiles, _ = self.smiles_lstm(smiles)  # B * seq len * lstm_dim*2
+        smiles_mask = self.generate_masks(smiles, smiles_lengths, self.n_heads)  # B * head* seq len
+        smiles_out, smile_attn = self.out_attentions3(smiles, smiles_mask)  # B * lstm_dim*2
+        return smiles_out
+
 
     def generate_masks(self, adj, adj_sizes, n_heads):
         out = torch.ones(adj.shape[0], adj.shape[1])

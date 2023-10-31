@@ -49,8 +49,18 @@ class MGraphDTA(nn.Module):
         self.classifier2 = nn.Sequential(
             nn.ReLU(),
             nn.Dropout(0.1),
-            nn.Linear(256, out_dim)
+            nn.Linear(256, 256)
         )
+
+        # self.classifier3 = nn.Sequential(
+        #     nn.Linear(256, 256),
+        #     nn.ReLU(),
+        #     nn.Dropout(0.1),
+        #     nn.Linear(256, 1)
+        # )
+        # self.dd1 = nn.Linear(256, 256)
+        # self.dd2 = nn.Linear(256, 1)
+
 
     def get_dataset(self, data_input_path, dataset_name):
         print(f"processing Mgraph dataset of {dataset_name}...")
@@ -67,7 +77,7 @@ class MGraphDTA(nn.Module):
         )
         return train_dataset, test_dataset
 
-    def forward(self, data, output_vector=False):
+    def forward(self, data, output_vector=False, freeze_front=False):
         target = data.target
         protein_x = self.protein_encoder(target)
         ligand_x = self.ligand_encoder(data)
@@ -75,8 +85,19 @@ class MGraphDTA(nn.Module):
         xx = torch.cat([protein_x, ligand_x], dim=-1)
         x = self.classifier(xx)
         out = self.classifier2(x)
+
         if output_vector:
-            return xx, x
+            return out
+
+        # if freeze_front:
+        #     out = self.dd1(out) * out
+        #     out = self.dd2(out)
+        #     return out
+
+        out = torch.norm(out, dim=-1)
+
+        # if output_vector:
+        #     return torch.cat((xx, out), dim=-1), torch.cat((x, out), dim=-1)
         return out
 
     def val(self, test_set, batch_size=128, use_cuda=True):
@@ -98,7 +119,8 @@ class MGraphDTA(nn.Module):
         all_mse = mean_squared_error(total_label.detach().numpy().flatten(), total_pred.detach().numpy().flatten())
         return all_mse, all_ci
 
-    def fit(self, train_set, test_set, save_model=True, device=torch.device('cuda'), early_stop_epoch=400, lr=5e-4):
+    def fit(self, train_set, test_set, save_model=True, device=torch.device('cuda'), early_stop_epoch=400, lr=5e-4,
+            freeze_front=False):
         print(f"len(train_set)={len(train_set)}")
         print(f"len(test_set)={len(test_set)}")
 
@@ -123,6 +145,15 @@ class MGraphDTA(nn.Module):
 
         model.train()
 
+        if freeze_front:
+            for param in model.parameters():
+                param.requires_grad = False
+            for param in model.dd1.parameters():
+                param.requires_grad = True
+            for param in model.dd2.parameters():
+                param.requires_grad = True
+            optimizer = optim.Adam(filter(lambda p : p.requires_grad, model.parameters()), lr=lr)
+
         for i in range(num_iter):
             if break_flag:
                 break
@@ -131,7 +162,7 @@ class MGraphDTA(nn.Module):
 
                 global_step += 1
                 data = data.to(device)
-                pred = model(data)
+                pred = model(data, freeze_front=freeze_front)
 
                 loss = criterion(pred.view(-1), data.y.view(-1))
                 cindex = get_cindex(data.y.detach().cpu().numpy().reshape(-1),

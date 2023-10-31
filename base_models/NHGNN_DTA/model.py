@@ -46,7 +46,8 @@ class GINConvNet(torch.nn.Module):
         # combined layers
         self.fc1 = nn.Linear(128, 1024)
         self.fc2 = nn.Linear(1024, 256)
-        self.out = nn.Linear(256, self.n_output)  # n_output = 1 for regression task
+        self.out = nn.Linear(256, 1)  # n_output = 1 for regression task
+        self.out1 = nn.Linear(256, 256)
 
     def forward(self, data, output_vector=False):
         x, edge_index, batch = data.x.cuda(), data.edge_index.cuda(), data.batch.cuda()
@@ -65,9 +66,6 @@ class GINConvNet(torch.nn.Module):
         x = F.relu(self.fc1_xd(x))
         x = F.dropout(x, p=0.2, training=self.training)
 
-        if output_vector:
-            return x
-
         # concat
         xc = x
         xc = self.fc1(xc)
@@ -77,7 +75,15 @@ class GINConvNet(torch.nn.Module):
 
         xc = self.relu(xc)
         xc = self.dropout(xc)
-        out = self.out(xc)
+        out = self.out1(xc)
+
+        if output_vector:
+            return out
+
+        out = torch.norm(out, dim=-1).view(-1, 1)
+
+
+
         return out
 
 

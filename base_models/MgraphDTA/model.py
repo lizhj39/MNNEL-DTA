@@ -27,7 +27,6 @@ class Conv1dReLU(nn.Module):
         )
     
     def forward(self, x):
-
         return self.inc(x)
 
 class LinearReLU(nn.Module):
@@ -53,7 +52,6 @@ class StackCNN(nn.Module):
         self.inc.add_module('pool_layer', nn.AdaptiveMaxPool1d(1))
 
     def forward(self, x):
-
         return self.inc(x).squeeze(-1)
 
 class TargetRepresentation(nn.Module):
